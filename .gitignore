@@ -1,0 +1,64 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# Virtual envs
+.venv/
+venv/
+env/
+
+# Env secrets
+.env
+.env.local
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Build
+*.egg-info/
+dist/
+build/
+
+# IDE
+.vscode/settings.json
+.idea/
+
+# Data (large files — manage separately)
+data/
+!data/.gitkeep
+qdrant_storage/
+
+# External/reference repositories (too large/noisy for project repo)
+src/support_repo/
+
+# Papers / large binaries
+*.pdf
+*.zip
+*.tar
+*.tar.gz
+*.7z
+
+# Model cache / generated indexes
+*.joblib
+*.pkl
+*.pt
+*.pth
+*.safetensors
+*.bin
+
+# Outputs
+outputs/
+
+# Demo generated files
+demo/demo_data.json
+demo/index.html
+
+# Misc
+Thumbs.db
+.DS_Store
+*.bak
