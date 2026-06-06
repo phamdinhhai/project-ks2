@@ -1,7 +1,7 @@
 """BioMedBERT biomedical text encoder.
 
-Wraps microsoft/BiomedNLP-BiomedBERT-large-uncased-abstract-fulltext for:
-- Text embedding: str → 1024-dim vector (mean pooling)
+Wraps a HuggingFace BioMedBERT checkpoint for:
+- Text embedding: str → vector (mean pooling)
 
 Outperforms generic BERT/RoBERTa on medical text retrieval tasks.
 Reference: MMed-RAG uses domain-specific text embeddings for medical QA retrieval.
@@ -9,16 +9,18 @@ Reference: MMed-RAG uses domain-specific text embeddings for medical QA retrieva
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any
 
 import numpy as np
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_MODEL_NAME = (
-    "microsoft/BiomedNLP-BiomedBERT-large-uncased-abstract-fulltext"
+DEFAULT_MODEL_NAME = os.environ.get(
+    "BIOMEDBERT_MODEL",
+    "microsoft/BiomedNLP-BiomedBERT-large-uncased-abstract",
 )
-EMBEDDING_DIM = 1024
+EMBEDDING_DIM = int(os.environ.get("BIOMEDBERT_DIM", "1024"))
 
 
 class BioMedBERTEncoder:
@@ -68,7 +70,7 @@ class BioMedBERTEncoder:
             normalize: L2-normalize the output vector
 
         Returns:
-            np.ndarray of shape (1024,)
+            np.ndarray embedding vector
         """
         return self.encode_batch([text], normalize=normalize)[0]
 
@@ -86,7 +88,7 @@ class BioMedBERTEncoder:
             normalize: L2-normalize each output vector
 
         Returns:
-            np.ndarray of shape (N, 1024)
+            np.ndarray of shape (N, embedding_dim)
         """
         import torch
 
