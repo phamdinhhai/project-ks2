@@ -7,12 +7,13 @@ from pathlib import Path
 import typer
 from rich.console import Console
 
-from medical_rag.ablation import run_ablation
+from medical_rag.ablation import run_ablation, run_agent_ablation
 from medical_rag.config import RAGConfig
 from medical_rag.dataset_audit import audit_data_directory
 from medical_rag.demo_export import export_demo as export_demo_site
 from medical_rag.evaluation import evaluate as run_evaluation
 from medical_rag.evaluation_advanced import evaluate_advanced as run_evaluation_advanced
+from medical_rag.evaluation_advanced import ragas_evaluate as run_ragas_evaluation
 from medical_rag.indexing import build_indexes, index_stats
 from medical_rag.pipeline import MedicalRAGPipeline
 from medical_rag.project_status import build_status_report
@@ -164,6 +165,31 @@ def ablate(
     _print_json(summary)
 
 
+@app.command("ablate-agent")
+def ablate_agent(
+    eval_file: Path = typer.Option(Path("data/eval_cases_smoke_10.json"), help="Evaluation cases JSON"),
+    index_dir: Path = typer.Option(Path("data/processed/indexes"), help="Index directory"),
+    data_dir: Path = typer.Option(Path("data"), help="Dataset root directory"),
+    output_dir: Path = typer.Option(Path("outputs/agent_ablation"), help="Agent ablation output directory"),
+    top_k: int = typer.Option(5, help="Top-k evidence for metrics"),
+    profiles: str = typer.Option("E,F,G,H", help="Comma-separated agent profiles"),
+    use_mock_models: bool = typer.Option(True, help="Use mock VLM/encoders for local smoke tests"),
+) -> None:
+    """Run LangGraph agent ablation profiles E/F/G/H."""
+    profile_list = [p.strip().upper() for p in profiles.split(",") if p.strip()]
+    summary = run_agent_ablation(
+        eval_file=eval_file,
+        index_dir=index_dir,
+        data_dir=data_dir,
+        output_dir=output_dir,
+        top_k=top_k,
+        profiles=profile_list,
+        use_mock_models=use_mock_models,
+    )
+    printable = {k: v for k, v in summary.items() if k != "results"}
+    _print_json(printable)
+
+
 @app.command("export-demo")
 def export_demo(
     index_dir: Path = typer.Option(Path("data/processed/indexes"), help="Index directory"),
@@ -206,11 +232,21 @@ def evaluate_advanced(
     data_dir: Path = typer.Option(Path("data"), help="Dataset root directory"),
     top_k: int = typer.Option(5, help="Top-k evidence for metrics"),
     output_file: Path | None = typer.Option(None, help="Optional JSON output file"),
+    run_ragas: bool = typer.Option(False, help="Run optional RAGAS metrics after advanced evaluation"),
+    ragas_output_file: Path | None = typer.Option(None, help="Optional RAGAS JSON output file"),
+    ragas_max_samples: int | None = typer.Option(None, help="Optional max samples for RAGAS"),
 ) -> None:
     """Advanced evaluation: Exact Match + Token F1 + per-dataset breakdown."""
     config = RAGConfig(index_dir=index_dir, data_dir=data_dir).resolved()
     pipeline = MedicalRAGPipeline(config)
     metrics = run_evaluation_advanced(eval_file, pipeline, top_k=top_k)
+    if run_ragas:
+        ragas_metrics = run_ragas_evaluation(metrics, max_samples=ragas_max_samples)
+        metrics["ragas"] = ragas_metrics
+        if ragas_output_file:
+            ragas_output_file.parent.mkdir(parents=True, exist_ok=True)
+            ragas_output_file.write_text(json.dumps(ragas_metrics, ensure_ascii=False, indent=2), encoding="utf-8")
+            console.print(f"[green]Saved RAGAS metrics to {ragas_output_file}[/green]")
     # Print summary without per-row noise
     summary = {k: v for k, v in metrics.items() if k != "rows"}
     _print_json(summary)

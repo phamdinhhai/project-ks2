@@ -8,11 +8,21 @@ Reference: HM-RAG multi-source retrieval, MMed-RAG medical text retrieval.
 from __future__ import annotations
 
 import logging
+from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
 from medical_rag.agents.state import AgentState
 
 logger = logging.getLogger(__name__)
+
+
+@lru_cache(maxsize=4)
+def _cached_load_indexes(index_dir: str) -> dict[str, Any]:
+    """Load joblib indexes once per process for agent fallback retrieval."""
+    from medical_rag.indexing import load_indexes
+
+    return load_indexes(Path(index_dir))
 
 
 def retrieve_text(state: AgentState) -> AgentState:
@@ -130,7 +140,6 @@ def _search_baseline(
     from pathlib import Path
 
     from medical_rag.config import RAGConfig
-    from medical_rag.indexing import load_indexes
     from medical_rag.retrieval.text import HybridTextRetriever
 
     index_dir = Path(cfg.get("index_dir", "data/processed/indexes"))
@@ -143,7 +152,7 @@ def _search_baseline(
         dense_weight=cfg.get("dense_weight", 0.45),
         text_top_k=top_k,
     )
-    bundle = load_indexes(index_dir)
+    bundle = _cached_load_indexes(str(index_dir))
     retriever = HybridTextRetriever(bundle, rag_config)
     results = retriever.search(query, top_k=top_k, dataset_filter=dataset_hint)
     return [

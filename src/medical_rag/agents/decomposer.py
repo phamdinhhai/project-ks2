@@ -48,8 +48,18 @@ def decompose_query(state: AgentState) -> AgentState:
     question = state.get("question", "")
     image_path = state.get("image_path")
     step_count = state.get("step_count", 0) + 1
+    cfg = state.get("config", {})
 
     updates: AgentState = {"step_count": step_count}
+
+    if cfg.get("force_text_only_agent"):
+        updates["text_subquery"] = question
+        updates["visual_subquery"] = ""
+        updates["query_type"] = "text"
+        updates["reasoning_steps"] = state.get("reasoning_steps", []) + [
+            "[decompose] Forced text-only agent profile"
+        ]
+        return updates
 
     # Try VLM-based decomposition
     vlm = _try_get_vlm(state)
@@ -95,6 +105,16 @@ def _try_get_vlm(state: AgentState) -> object | None:
     if not cfg.get("use_vlm_generation"):
         return None
     try:
+        if cfg.get("use_mock_models") or cfg.get("llm_provider") == "mock":
+            from medical_rag.models.mock_models import MockQwenVL
+            return MockQwenVL()
+        if cfg.get("llm_provider") == "openrouter":
+            from medical_rag.models.openrouter_vlm import OpenRouterVLM
+            return OpenRouterVLM(
+                model=cfg.get("openrouter_model"),
+                base_url=cfg.get("openrouter_base_url"),
+                max_tokens=cfg.get("max_new_tokens", 256),
+            )
         from medical_rag.models.qwen_vl import QwenVLModel
         return QwenVLModel(model_name=cfg.get("vlm_model_name", "Qwen/Qwen2.5-VL-7B-Instruct"))
     except Exception:

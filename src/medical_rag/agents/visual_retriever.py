@@ -10,12 +10,21 @@ Reference:
 from __future__ import annotations
 
 import logging
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
 from medical_rag.agents.state import AgentState
 
 logger = logging.getLogger(__name__)
+
+
+@lru_cache(maxsize=4)
+def _cached_load_indexes(index_dir: str) -> dict[str, Any]:
+    """Load joblib indexes once per process for agent fallback retrieval."""
+    from medical_rag.indexing import load_indexes
+
+    return load_indexes(Path(index_dir))
 
 
 def retrieve_visual(state: AgentState) -> AgentState:
@@ -161,7 +170,6 @@ def _coarse_search_baseline(
     from pathlib import Path as _Path
 
     from medical_rag.config import RAGConfig
-    from medical_rag.indexing import load_indexes
     from medical_rag.retrieval.image import ImageRetriever
 
     index_dir = _Path(cfg.get("index_dir", "data/processed/indexes"))
@@ -173,7 +181,7 @@ def _coarse_search_baseline(
         image_top_k=top_k,
         min_image_score=cfg.get("min_image_score", 0.01),
     )
-    bundle = load_indexes(index_dir)
+    bundle = _cached_load_indexes(str(index_dir))
     retriever = ImageRetriever(bundle, rag_config)
     results = retriever.search(query, top_k=top_k, dataset_filter=dataset_hint)
     return [

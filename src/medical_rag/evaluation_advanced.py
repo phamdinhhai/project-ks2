@@ -190,6 +190,8 @@ def evaluate_advanced(
             "gold": gold,
             "gold_answer": gold_answer,
             "pred_answer": answer.answer,
+            "contexts": [getattr(item, "text", "") for item in evidence if getattr(item, "text", "")],
+            "evidence_ids": [getattr(item, "id", "") for item in evidence],
             "hit": hit,
             "mrr": rr,
             "exact_match": em,
@@ -301,3 +303,88 @@ def evaluate_agent(
         "per_dataset": _compute_per_dataset(rows),
         "rows": rows,
     }
+
+
+# ---------------------------------------------------------------------------
+#  Optional RAGAS evaluation
+# ---------------------------------------------------------------------------
+
+def ragas_evaluate(
+    evaluation_result: dict[str, Any],
+    max_samples: int | None = None,
+) -> dict[str, Any]:
+    """Run optional RAGAS metrics on advanced evaluation rows.
+
+    This function is intentionally defensive: if `ragas`, `datasets`, or a
+    compatible LLM/embedding backend is unavailable, it returns a structured
+    skipped result instead of failing the benchmark pipeline.
+    """
+    rows = list(evaluation_result.get("rows", []))
+    usable_rows = [
+        row for row in rows
+        if row.get("query") and row.get("pred_answer") and row.get("contexts")
+    ]
+    if max_samples is not None:
+        usable_rows = usable_rows[:max_samples]
+
+    if not usable_rows:
+        return {
+            "available": False,
+            "skipped": True,
+            "reason": "No rows with query, pred_answer, and contexts were available for RAGAS.",
+            "total_rows": len(rows),
+            "evaluated_rows": 0,
+        }
+
+    try:
+        from datasets import Dataset
+        from ragas import evaluate as ragas_evaluate_fn
+        try:
+            from ragas.metrics import answer_relevancy, context_precision, context_recall, faithfulness
+            metrics = [faithfulness, answer_relevancy, context_precision, context_recall]
+        except Exception:
+            from ragas.metrics import answer_relevancy, faithfulness
+            metrics = [faithfulness, answer_relevancy]
+    except Exception as exc:
+        return {
+            "available": False,
+            "skipped": True,
+            "reason": f"RAGAS dependencies are unavailable: {exc}",
+            "install_hint": "Install optional eval dependencies with: python -m pip install -e \".[eval]\"",
+            "total_rows": len(rows),
+            "evaluated_rows": 0,
+        }
+
+    dataset = Dataset.from_dict({
+        "question": [row.get("query", "") for row in usable_rows],
+        "answer": [row.get("pred_answer", "") for row in usable_rows],
+        "contexts": [row.get("contexts", []) for row in usable_rows],
+        "ground_truth": [row.get("gold_answer") or "" for row in usable_rows],
+    })
+
+    try:
+        result = ragas_evaluate_fn(dataset, metrics=metrics)
+        if hasattr(result, "to_pandas"):
+            frame = result.to_pandas()
+            numeric_frame = frame.select_dtypes(include="number")
+            aggregate = {
+                column: float(numeric_frame[column].mean())
+                for column in numeric_frame.columns
+            }
+        else:
+            aggregate = dict(result)
+        return {
+            "available": True,
+            "skipped": False,
+            "total_rows": len(rows),
+            "evaluated_rows": len(usable_rows),
+            "metrics": aggregate,
+        }
+    except Exception as exc:
+        return {
+            "available": True,
+            "skipped": True,
+            "reason": f"RAGAS execution failed: {exc}",
+            "total_rows": len(rows),
+            "evaluated_rows": len(usable_rows),
+        }

@@ -28,6 +28,39 @@ def _iter_jsonl(path: Path):
                 yield json.loads(line)
 
 
+def _canonical_files(data_dir: Path, dataset: str) -> list[Path]:
+    """Return canonical JSONL files for a dataset, matching data_loaders priority."""
+    manifest_file = data_dir / dataset / "manifest.json"
+    if not manifest_file.exists():
+        return []
+    manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
+    files: list[Path] = []
+    for file_info in manifest.get("files", []):
+        file_path_str = str(file_info.get("path") or "")
+        if not file_path_str:
+            continue
+        # data_loaders.load_canonical_dataset resolves by basename under data/<dataset>.
+        actual_path = data_dir / dataset / Path(file_path_str).name
+        if actual_path.exists():
+            files.append(actual_path)
+    return files
+
+
+def _load_dataset_rows(data_dir: Path, dataset: str) -> tuple[list[dict[str, Any]], str | None, bool]:
+    """Load rows from canonical files when available, otherwise legacy processed JSONL."""
+    canonical_paths = _canonical_files(data_dir, dataset)
+    if canonical_paths:
+        rows: list[dict[str, Any]] = []
+        for path in canonical_paths:
+            rows.extend(_iter_jsonl(path))
+        source = ",".join(str(path) for path in canonical_paths)
+        return rows, source, True
+
+    processed_path = data_dir / "processed" / PROCESSED_FILES[dataset]
+    if processed_path.exists():
+        return list(_iter_jsonl(processed_path)), str(processed_path), False
+    return [], None, False
+
 def _language_of(text: str) -> str:
     lower = text.lower()
     vi_chars = "ăâđêôơưáàảãạắằẳẵặấầẩẫậéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ"
@@ -49,11 +82,25 @@ def _query_text(row: dict[str, Any], dataset: str) -> str:
     return answer[:220] if answer else f"{dataset} sample"
 
 
+def _canonical_record_id(dataset: str, record_id: str) -> str:
+    """Normalize processed record_id to canonical/index record_id format.
+
+    Canonicalized datasets prefix record IDs with the dataset name, e.g.
+    processed `train-0` becomes indexed as `medqa-train-0`.
+    If the prefix is already present, keep it unchanged.
+    """
+    record_id = str(record_id or "")
+    if dataset == "roco":
+        return record_id
+    return record_id if record_id.startswith(f"{dataset}-") else f"{dataset}-{record_id}"
+
+
 def _build_text_case(dataset: str, record_id: str, row: dict[str, Any]) -> dict[str, Any]:
     query = _query_text(row, dataset)
+    canonical_id = _canonical_record_id(dataset, record_id)
     return {
         "query": query,
-        "gold_text_id": f"{dataset}-text-{record_id}",
+        "gold_text_id": f"{dataset}-text-{canonical_id}",
         "gold_answer": row.get("answer"),
         "query_language": _language_of(query),
         "modality": "text",
@@ -66,9 +113,10 @@ def _build_text_case(dataset: str, record_id: str, row: dict[str, Any]) -> dict[
 def _build_image_case(dataset: str, record_id: str, row: dict[str, Any]) -> dict[str, Any]:
     query = _query_text(row, dataset)
     task_type = "qa_image" if dataset in {"vqa_rad", "mimic_cxr"} else "caption_image"
+    canonical_id = _canonical_record_id(dataset, record_id)
     return {
         "query": query,
-        "gold_image_id": f"{dataset}-image-{record_id}",
+        "gold_image_id": f"{dataset}-image-{canonical_id}",
         "gold_answer": row.get("answer"),
         "query_language": _language_of(query),
         "modality": "image",
@@ -97,21 +145,22 @@ def build_eval_cases(
     }
 
     for dataset, target in targets.items():
-        path = processed_dir / PROCESSED_FILES[dataset]
-        if not path.exists():
+        dataset_rows, source_file, used_canonical = _load_dataset_rows(data_dir, dataset)
+        if not dataset_rows:
             summary["datasets"][dataset] = {
                 "exists": False,
                 "target": target,
                 "created": 0,
                 "text_cases": 0,
                 "image_cases": 0,
+                "used_canonical": used_canonical,
+                "source_file": source_file,
             }
             continue
 
         text_cases = 0
         image_cases = 0
         created = 0
-        dataset_rows = list(_iter_jsonl(path))
         if not dataset_rows:
             summary["datasets"][dataset] = {
                 "exists": True,
@@ -120,6 +169,8 @@ def build_eval_cases(
                 "created": 0,
                 "text_cases": 0,
                 "image_cases": 0,
+                "used_canonical": used_canonical,
+                "source_file": source_file,
             }
             continue
 
@@ -167,7 +218,8 @@ def build_eval_cases(
             "created": created,
             "text_cases": text_cases,
             "image_cases": image_cases,
-            "source_file": str(path),
+            "used_canonical": used_canonical,
+            "source_file": source_file,
         }
 
     summary["total_cases"] = len(cases)
