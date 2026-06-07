@@ -12,6 +12,7 @@ PROCESSED_FILES = {
     "vqa_rad": "vqa_rad_processed.jsonl",
     "roco": "roco_processed.jsonl",
     "mimic_cxr": "mimic_cxr_processed.jsonl",
+    "pathvqa": "pathvqa_processed.jsonl",
 }
 
 
@@ -60,7 +61,7 @@ def _image_caption(row: dict) -> str:
     text = str(row.get("text") or "").strip()
     question = str(row.get("question") or "").strip()
     answer = str(row.get("answer") or "").strip()
-    if dataset == "vqa_rad":
+    if dataset in {"vqa_rad", "pathvqa"}:
         return "\n".join(part for part in [f"Question: {question}" if question else "", f"Answer: {answer}" if answer else "", text] if part)
     if dataset == "mimic_cxr":
         return f"MIMIC-CXR radiology report:\n{text}"
@@ -105,7 +106,7 @@ def load_processed_dataset(data_dir: Path, dataset: str, limit: int | None = Non
                 source_path=str(processed_file),
                 metadata=metadata,
             ))
-        if image_path or dataset_name in {"roco", "vqa_rad", "mimic_cxr"}:
+        if image_path or dataset_name in {"roco", "vqa_rad", "mimic_cxr", "pathvqa"}:
             caption = _image_caption(row)
             if caption:
                 images.append(ImageRecord(

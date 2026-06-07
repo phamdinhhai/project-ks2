@@ -84,6 +84,81 @@ def build_qdrant_index(
     _print_json({"qdrant_url": qdrant_url, "mock": use_mock_models, **result})
 
 
+@app.command("build-qdrant-index-resumable")
+def build_qdrant_index_resumable(
+    data_dir: Path = typer.Option(Path("data"), help="Dataset root directory"),
+    qdrant_url: str = typer.Option(":memory:", help="Qdrant URL, or ':memory:' for local in-memory"),
+    datasets: str = typer.Option("all", help="Comma-separated datasets, or 'all'"),
+    modality: str = typer.Option("both", help="text, image, or both"),
+    image_mode: str = typer.Option("full_only", help="full_only, patches, or caption_fallback"),
+    state_file: Path = typer.Option(Path("outputs/index_state/full_index_state.json"), help="Resume state file"),
+    text_collection: str = typer.Option("text_chunks_prod", help="Qdrant text collection"),
+    image_collection: str = typer.Option("image_patches_prod", help="Qdrant image collection"),
+    batch_size: int = typer.Option(16, help="Upsert/encoding batch size"),
+    max_records: int | None = typer.Option(None, help="Optional max records per dataset"),
+    max_text_points: int | None = typer.Option(None, help="Optional text point budget for this run"),
+    max_image_points: int | None = typer.Option(None, help="Optional image point budget for this run"),
+    max_minutes: float | None = typer.Option(None, help="Optional runtime budget in minutes"),
+    recreate: bool = typer.Option(False, help="Drop and recreate target collections"),
+    dry_run: bool = typer.Option(False, help="Count pending work without embedding/upserting"),
+    use_mock_models: bool = typer.Option(False, help="Use deterministic mock embeddings for local testing"),
+    use_cloud_auth: bool = typer.Option(False, help="Use QDRANT_API_KEY for Qdrant Cloud"),
+) -> None:
+    """Build or resume a production full-corpus Qdrant index."""
+    from medical_rag.ingestion.resumable_indexer import ResumableIndexConfig, run_resumable_index
+    from medical_rag.ingestion.indexer import get_client
+    from medical_rag.models.mock_models import MockBioCLIP, MockBioMedBERT
+
+    if modality not in {"text", "image", "both"}:
+        raise typer.BadParameter("modality must be one of: text, image, both")
+    if image_mode not in {"full_only", "patches", "caption_fallback"}:
+        raise typer.BadParameter("image-mode must be one of: full_only, patches, caption_fallback")
+
+    if use_cloud_auth:
+        from medical_rag.ingestion.qdrant_cloud import get_qdrant_cloud_client
+        client = get_qdrant_cloud_client(url=qdrant_url if qdrant_url != ":memory:" else None)
+    else:
+        client = get_client(qdrant_url)
+
+    if use_mock_models:
+        text_encoder = MockBioMedBERT()
+        image_encoder = MockBioCLIP()
+    else:
+        from medical_rag.models.bioclip import BioCLIPEncoder, DEFAULT_MODEL_NAME as BIOCLIP_DEFAULT
+        from medical_rag.models.biomedbert import BioMedBERTEncoder
+        text_encoder = BioMedBERTEncoder()
+        image_encoder = BioCLIPEncoder()
+        bioclip_model_name = BIOCLIP_DEFAULT
+
+    if use_mock_models:
+        text_model_name = "mock-biomedbert"
+        image_model_name = "mock-bioclip"
+    else:
+        text_model_name = getattr(text_encoder, "model_name", "microsoft/BiomedNLP-BiomedBERT-large-uncased-abstract")
+        image_model_name = getattr(image_encoder, "model_name", bioclip_model_name)
+
+    config = ResumableIndexConfig(
+        data_dir=data_dir,
+        state_file=state_file,
+        datasets=[part.strip() for part in datasets.split(",") if part.strip()],
+        modality=modality,  # type: ignore[arg-type]
+        image_mode=image_mode,  # type: ignore[arg-type]
+        text_collection=text_collection,
+        image_collection=image_collection,
+        batch_size=batch_size,
+        max_records=max_records,
+        max_text_points=max_text_points,
+        max_image_points=max_image_points,
+        max_minutes=max_minutes,
+        dry_run=dry_run,
+        recreate=recreate,
+        text_model_name=text_model_name,
+        image_model_name=image_model_name,
+    )
+    result = run_resumable_index(client, text_encoder, image_encoder, config)
+    _print_json(result)
+
+
 @app.command("audit-data")
 def audit_data(
     data_dir: Path = typer.Option(Path("data"), help="Dataset root directory"),
