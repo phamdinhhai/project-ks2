@@ -26,8 +26,8 @@ EMBEDDING_DIM = 512
 class BioCLIPEncoder:
     """BioCLIP image/text encoder with lazy loading and GPU/CPU auto-detection."""
 
-    def __init__(self, model_name: str = DEFAULT_MODEL_NAME, device: str | None = None):
-        self.model_name = model_name
+    def __init__(self, model_name: str | None = DEFAULT_MODEL_NAME, device: str | None = None):
+        self.model_name = model_name or DEFAULT_MODEL_NAME
         self._device = device
         self._model: Any = None
         self._processor: Any = None

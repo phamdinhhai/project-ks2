@@ -277,7 +277,10 @@ def evaluate_agent(
         "BIOMEDBERT_MODEL",
         "microsoft/BiomedNLP-BiomedBERT-large-uncased-abstract",
     )
-    image_model_name = os.environ.get("BIOCLIP_MODEL")
+    image_model_name = os.environ.get(
+        "BIOCLIP_MODEL",
+        "microsoft/BiomedCLIP-PubMedBERT_256-vit_base_patch16_224",
+    )
 
     cfg_dict = {
         "index_dir": str(index_dir),
