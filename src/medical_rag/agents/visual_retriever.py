@@ -138,12 +138,22 @@ def _coarse_search_qdrant(
             must=[FieldCondition(key="dataset", match=MatchValue(value=dataset_hint))]
         )
 
-    results = client.search(
-        collection_name=cfg.get("qdrant_collection_image", IMAGE_COLLECTION),
-        query_vector=query_vector,
-        limit=top_k,
-        query_filter=query_filter,
-    )
+    collection_name = cfg.get("qdrant_collection_image", IMAGE_COLLECTION)
+    if hasattr(client, "search"):
+        results = client.search(
+            collection_name=collection_name,
+            query_vector=query_vector,
+            limit=top_k,
+            query_filter=query_filter,
+        )
+    else:
+        response = client.query_points(
+            collection_name=collection_name,
+            query=query_vector,
+            limit=top_k,
+            query_filter=query_filter,
+        )
+        results = response.points
     return [
         {
             "id": r.payload.get("image_id", ""),

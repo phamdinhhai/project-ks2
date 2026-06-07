@@ -111,12 +111,23 @@ def _search_qdrant(
             must=[FieldCondition(key="dataset", match=MatchValue(value=dataset_hint))]
         )
 
-    results = client.search(
-        collection_name=cfg.get("qdrant_collection_text", TEXT_COLLECTION),
-        query_vector=query_vector,
-        limit=top_k * 2,  # over-retrieve for reranking
-        query_filter=query_filter,
-    )
+    collection_name = cfg.get("qdrant_collection_text", TEXT_COLLECTION)
+    limit = top_k * 2  # over-retrieve for reranking
+    if hasattr(client, "search"):
+        results = client.search(
+            collection_name=collection_name,
+            query_vector=query_vector,
+            limit=limit,
+            query_filter=query_filter,
+        )
+    else:
+        response = client.query_points(
+            collection_name=collection_name,
+            query=query_vector,
+            limit=limit,
+            query_filter=query_filter,
+        )
+        results = response.points
     return [
         {
             "id": r.payload.get("doc_id", ""),
