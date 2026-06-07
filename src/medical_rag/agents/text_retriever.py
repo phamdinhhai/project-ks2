@@ -90,7 +90,8 @@ def _search_qdrant(
         encoder = MockBioMedBERT()
     else:
         from medical_rag.models.biomedbert import BioMedBERTEncoder
-        encoder = BioMedBERTEncoder(model_name=cfg.get("text_model_name", ""))
+        model_name = cfg.get("text_model_name") or None
+        encoder = BioMedBERTEncoder(model_name=model_name)
 
     if cfg.get("use_cloud_auth") or cfg.get("qdrant_api_key"):
         from medical_rag.ingestion.qdrant_cloud import get_qdrant_cloud_client

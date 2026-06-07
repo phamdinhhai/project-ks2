@@ -109,7 +109,8 @@ def _coarse_search_qdrant(
         encoder = MockBioCLIP()
     else:
         from medical_rag.models.bioclip import BioCLIPEncoder
-        encoder = BioCLIPEncoder(model_name=cfg.get("image_model_name", ""))
+        model_name = cfg.get("image_model_name") or None
+        encoder = BioCLIPEncoder(model_name=model_name)
 
     if cfg.get("use_cloud_auth") or cfg.get("qdrant_api_key"):
         from medical_rag.ingestion.qdrant_cloud import get_qdrant_cloud_client
@@ -229,7 +230,8 @@ def _fine_grained_roi(
             base_url=cfg.get("openrouter_base_url"),
             max_tokens=cfg.get("max_new_tokens", 256),
         )
-        encoder = BioCLIPEncoder(model_name=cfg.get("image_model_name", ""))
+        model_name = cfg.get("image_model_name") or None
+        encoder = BioCLIPEncoder(model_name=model_name)
     else:
         from medical_rag.models.bioclip import BioCLIPEncoder
         from medical_rag.models.qwen_vl import QwenVLModel
@@ -238,7 +240,8 @@ def _fine_grained_roi(
             use_cpu_offload=cfg.get("use_cpu_offload", True),
             max_new_tokens=cfg.get("max_new_tokens", 256),
         )
-        encoder = BioCLIPEncoder(model_name=cfg.get("image_model_name", ""))
+        model_name = cfg.get("image_model_name") or None
+        encoder = BioCLIPEncoder(model_name=model_name)
 
     query_vec = encoder.encode_text(query)
 

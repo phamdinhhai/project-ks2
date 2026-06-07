@@ -273,6 +273,12 @@ def evaluate_agent(
 
     import os
 
+    text_model_name = os.environ.get(
+        "BIOMEDBERT_MODEL",
+        "microsoft/BiomedNLP-BiomedBERT-large-uncased-abstract",
+    )
+    image_model_name = os.environ.get("BIOCLIP_MODEL")
+
     cfg_dict = {
         "index_dir": str(index_dir),
         "data_dir": str(data_dir),
@@ -282,6 +288,8 @@ def evaluate_agent(
         "use_cross_encoder_rerank": False,
         "text_top_k": top_k,
         "image_top_k": top_k,
+        "text_model_name": text_model_name,
+        "image_model_name": image_model_name,
         "qdrant_url": os.environ.get("QDRANT_URL", ":memory:"),
         "qdrant_api_key": os.environ.get("QDRANT_API_KEY"),
         "use_cloud_auth": bool(os.environ.get("QDRANT_API_KEY")),
