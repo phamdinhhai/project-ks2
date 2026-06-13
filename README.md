@@ -107,7 +107,7 @@ Use the split workflow below:
 
 | Runtime | Responsibility |
 |---|---|
-| **Colab** | BioMedBERT/BioCLIP embedding, BGE reranking, Qdrant index build, benchmark/ablation |
+| **Kaggle / Colab** | BioMedBERT/BioCLIP embedding, BGE reranking, Qdrant index build, benchmark/ablation |
 | **Laptop** | Gradio/CLI QA app, local smoke tests, baseline experiments |
 | **OpenRouter** | Gemini 2.5 Flash VLM/LLM generation and visual grounding |
 | **Qdrant** | Local/in-memory debug or Qdrant Cloud persistent vector store |
@@ -120,14 +120,17 @@ python -m medical_rag test-encoders --mock
 python -m medical_rag test-qdrant --qdrant-url :memory:
 python -m medical_rag test-openrouter
 
-# Colab real indexing
-python scripts/colab_workflow.py build-index --data-dir data --limit 1000 --recreate --no-mock
+# Kaggle/Colab real indexing
+python scripts/colab_workflow.py build-index-resumable --data-dir data --qdrant-url $QDRANT_URL --datasets all --modality both --image-mode full_only --max-minutes 100 --use-cloud-auth
 
 # app on laptop
 python demo/app.py --use-agent --use-qdrant
 ```
 
-Full runbook: [docs/02-development/deployment.md](docs/02-development/deployment.md)
+Full runbooks:
+
+- [docs/02-development/deployment.md](docs/02-development/deployment.md)
+- [docs/02-development/kaggle-workflow.md](docs/02-development/kaggle-workflow.md)
 
 ---
 

@@ -51,7 +51,11 @@ If Qdrant Cloud is not ready yet, run baseline mode:
 python demo/app.py
 ```
 
-## 3. Colab workflow
+## 3. Cloud notebook workflow
+
+You can use either Colab or Kaggle for heavy indexing/evaluation.
+
+### Colab notebooks
 
 Open notebooks in order:
 
@@ -59,7 +63,17 @@ Open notebooks in order:
 2. `notebooks/colab_02_push_qdrant.ipynb`
 3. `notebooks/colab_03_run_ablation.ipynb`
 
-Colab is responsible for:
+### Kaggle notebooks
+
+Recommended if you want Kaggle GPU/runtime and Kaggle Secrets:
+
+1. `notebooks/kaggle_01_build_embeddings.ipynb`
+2. `notebooks/kaggle_02_verify_qdrant.ipynb`
+3. `notebooks/kaggle_03_run_ablation.ipynb`
+
+Detailed guide: [kaggle-workflow.md](kaggle-workflow.md)
+
+Cloud notebooks are responsible for:
 
 - Loading BioMedBERT and encoding text chunks
 - Loading BioCLIP and encoding image/full/patch vectors
