@@ -58,10 +58,11 @@ Attach the uploaded dataset before running any Kaggle notebook:
 Add Input -> oopclone989876/ks-project2-data
 ```
 
-Kaggle mounts it at:
+Kaggle may mount it at either path:
 
 ```text
 /kaggle/input/ks-project2-data
+/kaggle/input/datasets/oopclone989876/ks-project2-data
 ```
 
 The Kaggle notebooks auto-detect common layouts:
@@ -70,6 +71,8 @@ The Kaggle notebooks auto-detect common layouts:
 /kaggle/input/ks-project2-data/*
 /kaggle/input/ks-project2-data/data/*
 /kaggle/input/ks-project2-data/KS_Project_2/data/*
+/kaggle/input/datasets/oopclone989876/ks-project2-data/*
+/kaggle/input/datasets/oopclone989876/ks-project2-data/data/*
 ```
 
 They also handle a single `.zip` file if the dataset was uploaded as a zip.
