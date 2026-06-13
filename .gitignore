@@ -62,3 +62,7 @@ demo/index.html
 Thumbs.db
 .DS_Store
 *.bak
+
+# Kaggle credentials
+kaggle.json
+docs/**/kaggle.json

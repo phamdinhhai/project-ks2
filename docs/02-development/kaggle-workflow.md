@@ -50,7 +50,31 @@ QDRANT_TEXT_COLLECTION=text_chunks_prod
 QDRANT_IMAGE_COLLECTION=image_patches_prod
 ```
 
-## 4. Notebook Order
+## 4. Kaggle Dataset Input
+
+Attach the uploaded dataset before running any Kaggle notebook:
+
+```text
+Add Input -> oopclone989876/ks-project2-data
+```
+
+Kaggle mounts it at:
+
+```text
+/kaggle/input/ks-project2-data
+```
+
+The Kaggle notebooks auto-detect common layouts:
+
+```text
+/kaggle/input/ks-project2-data/*
+/kaggle/input/ks-project2-data/data/*
+/kaggle/input/ks-project2-data/KS_Project_2/data/*
+```
+
+They also handle a single `.zip` file if the dataset was uploaded as a zip.
+
+## 5. Notebook Order
 
 Run in this order:
 
