@@ -9,12 +9,14 @@ from medical_rag.dataset_audit import audit_data_directory
 from medical_rag.demo_export import export_demo
 from medical_rag.eval_case_builder import build_eval_cases, write_eval_cases
 from medical_rag.evaluation import evaluate
+from medical_rag.evaluation_advanced import evaluate_advanced
 from medical_rag.indexing import build_indexes
 from medical_rag.pipeline import MedicalRAGPipeline
 from medical_rag.project_status import build_status_report
 from medical_rag.reporting import run_query_debug
 from medical_rag.router import QueryRouter
 from medical_rag.schema import Modality
+from scripts.analyze_retrieval_errors import build_error_report
 
 
 def _write_jsonl(path: Path, rows: list[dict]) -> None:
@@ -131,8 +133,8 @@ def test_eval_case_builder_creates_real_ids(tmp_path: Path):
     cases, summary = build_eval_cases(data_dir, targets={"medqa": 1, "bioasq": 1, "vqa_rad": 2, "roco": 1, "mimic_cxr": 1})
 
     ids = {case.get("gold_text_id") or case.get("gold_image_id") for case in cases}
-    assert "medqa-text-train-0" in ids
-    assert "vqa_rad-image-train-0" in ids
+    assert "medqa-text-medqa-train-0" in ids
+    assert "vqa_rad-image-vqa_rad-train-0" in ids
     assert summary["raw_pdfs_used"] is False
     assert summary["total_cases"] == len(cases)
 
@@ -192,3 +194,34 @@ def test_ablation_demo_and_report_export(tmp_path: Path):
     assert "Summary Table" in report
     assert Path(demo["html"]).exists()
     assert Path(demo["data"]).exists()
+
+
+def test_advanced_eval_quality_metrics_and_error_report(tmp_path: Path):
+    _, _, pipeline = _pipeline(tmp_path)
+    eval_file = tmp_path / "eval.json"
+    eval_file.write_text(json.dumps([
+        {
+            "query": "pneumonia treatment",
+            "gold_text_id": "medqa-text-train-0",
+            "gold_answer": "Antibiotics",
+            "modality": "text",
+            "dataset_hint": "medqa",
+        },
+        {
+            "query": "unknown rare disease",
+            "gold_text_id": "missing-id",
+            "gold_answer": "unknown",
+            "modality": "text",
+            "dataset_hint": "bioasq",
+        },
+    ]), encoding="utf-8")
+
+    metrics = evaluate_advanced(eval_file, pipeline, top_k=3)
+    report = build_error_report(metrics, max_examples=5)
+
+    assert "answer_non_empty_rate" in metrics
+    assert "citation_coverage_rate" in metrics
+    assert "groundedness_proxy_rate" in metrics
+    assert metrics["answer_non_empty_rate"] > 0
+    assert "Retrieval Error Analysis" in report
+    assert "Top Miss Examples" in report

@@ -91,3 +91,21 @@ Qdrant failed
 2. Optionally run a larger eval file such as `data/eval_cases_medium_50.json`.
 3. Use `outputs/benchmark/final_benchmark_summary.md` in the thesis/report.
 4. Commit code/docs only; avoid committing raw outputs unless required.
+
+## Optimization Audit Addendum - 2026-06-14
+
+New local improvements added after the clean benchmark:
+
+| Area | Update | Impact |
+|---|---|---|
+| Advanced eval | Added free-form answer quality proxies | Reduces over-reliance on EM/F1 for citation-rich answers |
+| Reporting | Benchmark summary now surfaces quality proxies and optimization notes | Easier Chapter 4/table writing |
+| Error analysis | Added offline retrieval error analysis script | Helps inspect weak datasets such as BioASQ |
+| Workflow safety | Added Kaggle pre-run checklist and `--recreate` warning | Reduces accidental destructive Qdrant rebuilds |
+| Tests | Added smoke coverage for new metrics/report builder | Guards against metric aggregation regressions |
+
+Remaining optional work:
+
+- Run larger OpenRouter/Qdrant eval when secrets/API budget are ready.
+- Validate Gradio demo locally before final presentation.
+- Decide whether to delete, keep, or ignore local untracked notebook copies.
