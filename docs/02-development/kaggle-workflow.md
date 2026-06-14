@@ -41,6 +41,16 @@ Add these secrets:
 | `QDRANT_URL` | Qdrant Cloud endpoint |
 | `QDRANT_API_KEY` | Qdrant Cloud API key |
 
+The Kaggle notebooks load them explicitly as:
+
+```python
+from kaggle_secrets import UserSecretsClient
+user_secrets = UserSecretsClient()
+secret_value_0 = user_secrets.get_secret("OPENROUTER_API_KEY")
+secret_value_1 = user_secrets.get_secret("QDRANT_API_KEY")
+secret_value_2 = user_secrets.get_secret("QDRANT_URL")
+```
+
 The notebooks set defaults for:
 
 ```text
