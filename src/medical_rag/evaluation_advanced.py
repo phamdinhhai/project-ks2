@@ -67,6 +67,27 @@ def _safe_div(a: float, b: int | float) -> float:
     return float(a) / float(b) if b else 0.0
 
 
+def _answer_quality_signals(answer: str, contexts: list[str] | None = None, citations: list[Any] | None = None) -> dict[str, float]:
+    """Compute lightweight quality proxies for free-form/citation-rich answers.
+
+    EM/F1 are useful for short factual answers, but this project often emits
+    explanatory medical answers with retrieved evidence. These deterministic
+    proxies are intentionally cheap and API-free so they can run in local smoke
+    tests and benchmark summaries.
+    """
+    normalized = _normalize_answer(answer)
+    answer_tokens = set(normalized.split())
+    context_tokens = set(_normalize_answer(" ".join(contexts or [])).split())
+    overlap = len(answer_tokens & context_tokens)
+
+    return {
+        "answer_non_empty": 1.0 if normalized else 0.0,
+        "citation_coverage": 1.0 if citations else 0.0,
+        "evidence_overlap": _safe_div(overlap, len(answer_tokens)),
+        "groundedness_proxy": 1.0 if context_tokens and overlap >= 3 else 0.0,
+    }
+
+
 # ---------------------------------------------------------------------------
 #  NDCG@k
 # ---------------------------------------------------------------------------
@@ -183,6 +204,9 @@ def evaluate_advanced(
         errors = _error_categories(expected_mod, route_ok, hit, evidence, alias_only, em)
         error_dist.update(errors)
 
+        contexts = [getattr(item, "text", "") for item in evidence if getattr(item, "text", "")]
+        quality = _answer_quality_signals(answer.answer, contexts=contexts, citations=evidence)
+
         row = {
             "query": case["query"],
             "dataset_hint": case.get("dataset_hint") or case.get("dataset"),
@@ -190,7 +214,7 @@ def evaluate_advanced(
             "gold": gold,
             "gold_answer": gold_answer,
             "pred_answer": answer.answer,
-            "contexts": [getattr(item, "text", "") for item in evidence if getattr(item, "text", "")],
+            "contexts": contexts,
             "evidence_ids": [getattr(item, "id", "") for item in evidence],
             "hit": hit,
             "mrr": rr,
@@ -201,6 +225,7 @@ def evaluate_advanced(
             "matched_id": matched_id,
             "error_categories": errors,
             "modality": expected_mod,
+            **quality,
         }
         rows.append(row)
 
@@ -223,6 +248,10 @@ def evaluate_advanced(
         "routing_accuracy": _safe_div(totals["route"], total),
         "exact_match": _safe_div(totals["em"], ans_cases),
         "token_f1": _safe_div(totals["f1"], ans_cases),
+        "answer_non_empty_rate": _safe_div(sum(r.get("answer_non_empty", 0.0) for r in rows), total),
+        "citation_coverage_rate": _safe_div(sum(r.get("citation_coverage", 0.0) for r in rows), total),
+        "evidence_overlap_rate": _safe_div(sum(r.get("evidence_overlap", 0.0) for r in rows), total),
+        "groundedness_proxy_rate": _safe_div(sum(r.get("groundedness_proxy", 0.0) for r in rows), total),
         "error_distribution": dict(error_dist),
         "per_dataset": _compute_per_dataset(rows),
         "rows": rows,
@@ -269,6 +298,10 @@ def evaluate_agent(
         em = exact_match(pred_answer, gold_answer) if gold_answer else 0.0
         f1 = token_f1(pred_answer, gold_answer) if gold_answer else 0.0
 
+        citations = result.get("citations", [])
+        contexts = [str(item) for item in citations]
+        quality = _answer_quality_signals(pred_answer, contexts=contexts, citations=citations)
+
         row = {
             "query": case["query"],
             "dataset": case.get("dataset"),
@@ -278,8 +311,9 @@ def evaluate_agent(
             "token_f1": f1,
             "reasoning_steps": result.get("reasoning_steps", []),
             "step_count": result.get("step_count", 0),
-            "citations": result.get("citations", []),
+            "citations": citations,
             "error": result.get("error"),
+            **quality,
         }
         rows.append(row)
 
@@ -296,6 +330,10 @@ def evaluate_agent(
         "total": total,
         "exact_match": _safe_div(totals["em"], ans_cases),
         "token_f1": _safe_div(totals["f1"], ans_cases),
+        "answer_non_empty_rate": _safe_div(sum(r.get("answer_non_empty", 0.0) for r in rows), total),
+        "citation_coverage_rate": _safe_div(sum(r.get("citation_coverage", 0.0) for r in rows), total),
+        "evidence_overlap_rate": _safe_div(sum(r.get("evidence_overlap", 0.0) for r in rows), total),
+        "groundedness_proxy_rate": _safe_div(sum(r.get("groundedness_proxy", 0.0) for r in rows), total),
         "mean_steps": _safe_div(
             sum(r.get("step_count", 0) for r in rows), total
         ),

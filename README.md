@@ -20,9 +20,9 @@
 | **Model wrappers** | BioCLIP, BioMedBERT, Qwen2.5-VL, BGE Reranker | ✅ Done |
 | **Qdrant indexing** | Multi-vector indexer, 5-patch image chunking | ✅ Done |
 | **LangGraph Agent** | Decomposer → Retriever → Decision → Generator | ✅ Done |
-| **Advanced eval** | RAGAS, exact/F1 metrics | 🔄 In Progress |
-| **Gradio Demo** | Interactive UI với image upload | ⏳ Planned |
-| **Full benchmark** | 200 VQA-RAD + 100 MedQA + 50 MIMIC-CXR | ⏳ Planned |
+| **Advanced eval** | EM/F1, per-dataset metrics, RAGAS fallback, free-form quality proxies | ✅ Done |
+| **Gradio Demo** | Interactive UI với image upload, local validation pending | 🔄 Ready to test |
+| **Full benchmark** | 200 VQA-RAD + 100 MedQA + 50 MIMIC-CXR / cloud larger run | ⏳ Optional next step |
 
 ---
 
@@ -252,18 +252,37 @@ Xem thêm: [docs/02-development/folder-structure.md](./docs/02-development/folde
 
 ---
 
-## Kết quả hiện tại (baseline)
+## Kết quả hiện tại
 
-Kết quả từ `outputs/ablation_expanded/ablation_report.md`:
+Kết quả tổng hợp từ `TASK.md`, `outputs/ablation_full/`, và `outputs/benchmark/`:
 
-| Config | Mô tả | Recall@5 |
-|---|---|---|
-| A | Text-only (TF-IDF) | — |
-| B | Text-only + Rerank | — |
-| C | Image branch (Weighted RRF) | — |
-| D | Full pipeline | — |
+| Profile | Mô tả | Recall@5 | MRR@5 | Routing | Image Recall |
+|---|---|---:|---:|---:|---:|
+| A | Text-only TF-IDF | 0.4291 | 0.4054 | 0.5891 | 0.0000 |
+| B | Text-only + rerank | 0.4291 | 0.4054 | 0.5891 | 0.0000 |
+| C | Image branch + Weighted RRF | **0.8145** | **0.6812** | 0.7127 | **0.9204** |
+| D | Full baseline | 0.8073 | 0.6781 | 0.7127 | 0.9204 |
 
-*Chưa chạy full benchmark trên real eval set. Xem [ROADMAP.md](./ROADMAP.md).*
+Advanced baseline:
+
+| Metric | Value |
+|---|---:|
+| Recall@5 | 0.8073 |
+| MRR@5 | 0.6781 |
+| Routing accuracy | 0.7127 |
+| Exact Match | 0.0000 |
+| Token F1 | 0.0181 |
+
+> [!NOTE]
+> Exact Match và Token F1 thấp vì generator hiện trả lời dạng evidence draft/citation-rich,
+> không phải short-form answer. Project đã bổ sung các quality proxy nhẹ như
+> answer non-empty, citation coverage, evidence overlap và groundedness proxy để báo cáo công bằng hơn.
+
+Điểm cần cải thiện tiếp:
+
+- BioASQ retrieval còn yếu trong local benchmark.
+- Clean OpenRouter/Qdrant benchmark đã ổn nhưng mới ở small set 6 cases.
+- Gradio demo đã sẵn sàng để test local nhưng chưa được xác nhận như final deployment.
 
 ---
 

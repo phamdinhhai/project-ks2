@@ -61,6 +61,10 @@ def _advanced_overall_table(metrics: dict[str, Any]) -> str:
         ("Routing accuracy", metrics.get("routing_accuracy")),
         ("Exact Match", metrics.get("exact_match")),
         ("Token F1", metrics.get("token_f1")),
+        ("Answer non-empty rate", metrics.get("answer_non_empty_rate")),
+        ("Citation coverage rate", metrics.get("citation_coverage_rate")),
+        ("Evidence overlap rate", metrics.get("evidence_overlap_rate")),
+        ("Groundedness proxy rate", metrics.get("groundedness_proxy_rate")),
     ]
     lines = ["| Metric | Value |", "|---|---:|"]
     lines.extend(f"| {name} | {_fmt(value)} |" for name, value in rows)
@@ -151,6 +155,30 @@ def _ragas_table(summary: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _optimization_notes(metrics: dict[str, Any], agent: dict[str, Any]) -> str:
+    """Generate deterministic report notes for thesis/demo readiness."""
+    notes: list[str] = []
+    per_dataset = metrics.get("per_dataset", {})
+    weak = [
+        (name, row.get("recall_at_k", 0.0))
+        for name, row in per_dataset.items()
+        if isinstance(row, dict) and float(row.get("recall_at_k") or 0.0) < 0.5
+    ]
+    if weak:
+        formatted = ", ".join(f"{name} ({score:.4f})" for name, score in sorted(weak, key=lambda item: item[1]))
+        notes.append(f"- Retrieval weakness to inspect: {formatted}.")
+
+    if float(metrics.get("token_f1") or 0.0) < 0.1:
+        notes.append("- Token F1 is low because answers are citation-rich/free-form; use groundedness and citation metrics as complementary quality signals.")
+
+    if agent and int(agent.get("error_count") or 0) == 0:
+        notes.append("- Agent execution is stable in the selected run: error_count is 0.")
+
+    if not notes:
+        notes.append("- No major metric risk was detected in the selected benchmark files.")
+    return "\n".join(notes) + "\n"
+
+
 def build_report(
     ablation_summary: Path,
     benchmark_file: Path,
@@ -187,11 +215,15 @@ Generated from:
 ## RAGAS Smoke Metrics
 
 {_ragas_table(ragas)}
+## Optimization Notes
+
+{_optimization_notes(advanced, agent)}
 ## Notes for Thesis
 
 - Config C currently has the highest local lexical-baseline Recall@5.
 - Config D has slightly lower recall after reranking but remains the intended full baseline.
 - EM/F1 are low because the current baseline generator outputs evidence drafts rather than short-form answers.
+- Use `answer_non_empty_rate`, `citation_coverage_rate`, `evidence_overlap_rate`, and `groundedness_proxy_rate` as complementary metrics for free-form answers.
 - ROCO and MIMIC-CXR zero-recall issue was fixed by aligning eval cases with canonical dataset manifests.
 """
     output_file.parent.mkdir(parents=True, exist_ok=True)

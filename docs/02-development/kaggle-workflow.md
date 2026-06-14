@@ -97,6 +97,29 @@ notebooks/kaggle_02_verify_qdrant.ipynb
 notebooks/kaggle_03_run_ablation.ipynb
 ```
 
+### Before-running checklist
+
+> [!IMPORTANT]
+> Confirm these items before running heavy cells:
+>
+> - Kaggle Internet is On.
+> - GPU accelerator is enabled for embedding/indexing runs.
+> - `OPENROUTER_API_KEY`, `QDRANT_URL`, and `QDRANT_API_KEY` secrets exist.
+> - Qdrant collection names point to the intended environment.
+> - You are running the canonical notebooks above, not a local copy notebook.
+
+Recommended progression:
+
+| Run type | Purpose | Safe defaults |
+|---|---|---|
+| Dry run | Verify imports/secrets/paths | `--max-records 10`, no recreate |
+| Small run | Validate Qdrant writes | `--max-records 1000`, no recreate |
+| Resume run | Continue production indexing | remove/increase record limit, no recreate |
+| Rebuild run | Intentionally clear and rebuild collections | use `--recreate` only after backup/confirmation |
+
+> [!CAUTION]
+> `--recreate` deletes existing Qdrant collections before rebuilding. Do not use it for normal resume runs.
+
 ## 5. Notebook 01: Build Embeddings
 
 This notebook:
@@ -147,6 +170,20 @@ python scripts/colab_workflow.py build-index-resumable \
   --batch-size 16 \
   --use-cloud-auth
 ```
+
+
+### Data audit note
+
+The audit cell intentionally runs:
+
+```bash
+python -m medical_rag audit-data --data-dir data
+python -m medical_rag status-report --data-dir data
+```
+
+`project-status` is not a valid CLI command. If you see processed image paths with
+`image_path_existing: 0` but canonical raw files have existing image paths, continue
+with the dry run; loaders can normalize/copy paths during indexing.
 
 ## 6. Notebook 02: Verify Qdrant
 

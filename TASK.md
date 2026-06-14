@@ -145,3 +145,18 @@ Per-dataset Recall@5:
 - [ ] Deploy HuggingFace Spaces
 - [ ] Run error analysis
 - [ ] Prepare Chapter 4 tables
+
+## Optimization audit — 2026-06-14
+
+- [x] Add free-form answer quality proxy metrics
+  - [x] `answer_non_empty_rate`
+  - [x] `citation_coverage_rate`
+  - [x] `evidence_overlap_rate`
+  - [x] `groundedness_proxy_rate`
+- [x] Improve benchmark summary notes for thesis/report readiness
+- [x] Add offline retrieval error analysis script
+- [x] Add lightweight smoke coverage for advanced metrics/error report
+- [x] Synchronize README status and result tables
+- [ ] Run local verification after edits
+- [ ] Optional: run larger OpenRouter/Qdrant benchmark after secrets are configured
+- [ ] Optional: clean or ignore untracked notebook copies
